@@ -1,0 +1,6 @@
+{
+  "name": "Opds Catalog",
+  "version": "1.0.0",
+  "description": "Get books from opds catalogs.",
+  "script": "dist/index.js"
+}

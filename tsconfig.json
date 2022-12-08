@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "module": "esnext",
+    "target": "es2015",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "strict":true,
+    "lib": [
+      "es6",
+      "es7",
+      "dom"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@r2-opds-js/*": [
+        "node_modules/r2-opds-js/dist/es5/src/*"
+      ],
+      "@r2-utils-js/*": [
+        "node_modules/r2-utils-js/dist/es5/src/*"
+      ],
+      "@opds/*": [
+        "node_modules/r2-opds-js/dist/es6-es2015/src/opds/*"
+      ],
+      "@utils/*": [
+        "node_modules/r2-utils-js/dist/es6-es2015/src/_utils/*"
+      ]
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./node_modules/@infogata"
+    ]
+  },
+  "include": [
+    "src/**/*"
+  ]
+}
+
