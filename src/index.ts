@@ -1,11 +1,3 @@
-import {
-  Application,
-  Catalog,
-  Feed,
-  GetFeedRequest,
-  Publication,
-  PublicationSource,
-} from "./types";
 import * as xmldom from "@xmldom/xmldom";
 import { OPDS } from "@r2-opds-js/opds/opds1/opds";
 import { Entry } from "@r2-opds-js/opds/opds1/opds-entry";
@@ -16,7 +8,6 @@ import {
   initGlobalConverters_OPDS,
 } from "@r2-opds-js/opds/init-globals";
 
-declare const application: Application;
 // window.Buffer = window.Buffer || require("buffer").Buffer;
 initGlobalConverters_GENERIC();
 initGlobalConverters_OPDS();
