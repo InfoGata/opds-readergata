@@ -7,12 +7,13 @@ import {
   initGlobalConverters_GENERIC,
   initGlobalConverters_OPDS,
 } from "@r2-opds-js/opds/init-globals";
+import { MessageType, UiMessageType } from "./shared";
 
 // window.Buffer = window.Buffer || require("buffer").Buffer;
 initGlobalConverters_GENERIC();
 initGlobalConverters_OPDS();
 
-const proxiedUrl = "http://localhost:36325/"; //"https://cloudcors.audio-pwa.workers.dev?url=";
+const proxyUrl = "https://cloudcors.audio-pwa.workers.dev?url=";
 
 const imageRels = [
   //"http://opds-spec.org/image",
@@ -77,7 +78,8 @@ const getAcquisitionUrls = (
 };
 
 const makeOpdsRequest = async (url: string): Promise<Feed> => {
-  const response = await fetch(`${proxiedUrl}${url}`);
+  const proxy = (await application.getCorsProxy()) || proxyUrl;
+  const response = await fetch(`${proxy}${url}`);
   const origin = new URL(url).origin;
   const responseString = await response.text();
   const xmlDom = new xmldom.DOMParser().parseFromString(responseString);
@@ -125,25 +127,97 @@ const makeOpdsRequest = async (url: string): Promise<Feed> => {
   }
 };
 
-export const defaultCatalogs: Catalog[] = [
-  {
-    name: "SimplyE Collection",
-    apiId: "https://circulation.librarysimplified.org/OPEN/",
-  },
-  {
-    name: "Calibre",
-    apiId: "http://127.0.0.1:8081/opds",
-  },
-  {
-    name: "Internet Archive",
-    apiId: "http://bookserver.archive.org/catalog/",
-  },
-];
+const sendMessage = (message: MessageType) => {
+  application.postUiMessage(message);
+};
+
+const sendCatalogs = () => {
+  sendMessage({
+    type: "get-catalogs",
+    catalogs: getCatalogs(),
+  });
+};
+
+const setCatalogs = (catalogs: Catalog[]) => {
+  localStorage.setItem("catalogs", JSON.stringify(catalogs));
+};
+
+const addCatalog = (catalog: Catalog) => {
+  const currentCatalogs = getCatalogs();
+  currentCatalogs.push(catalog);
+  setCatalogs(currentCatalogs);
+};
+
+const updateCatalog = (catalog: Catalog) => {
+  const currentCatalogs = getCatalogs();
+  const newCatalogs = currentCatalogs.map((c) =>
+    c.id === catalog.id ? catalog : c
+  );
+  setCatalogs(newCatalogs);
+};
+
+const deleteCatalog = (catalog: Catalog) => {
+  const currentCatalogs = getCatalogs();
+  const newCatalogs = currentCatalogs.filter((c) => c.id !== catalog.id);
+  setCatalogs(newCatalogs);
+};
+
+application.onUiMessage = async (message: UiMessageType) => {
+  switch (message.type) {
+    case "get-catalogs":
+      sendCatalogs();
+      break;
+    case "add-catalog":
+      addCatalog(message.catalog);
+      sendCatalogs();
+      break;
+    case "update-catalog":
+      updateCatalog(message.catalog);
+      sendCatalogs();
+      break;
+    case "delete-catalog":
+      deleteCatalog(message.catalog);
+      sendCatalogs();
+      break;
+    default:
+      const _exhaustive: never = message;
+      break;
+  }
+};
+
+const getDefaultCatalogs = (): Catalog[] => {
+  return [
+    {
+      id: "1",
+      name: "SimplyE Collection",
+      apiId: "https://circulation.librarysimplified.org/OPEN/",
+    },
+    {
+      id: "2",
+      name: "Open Bookshelf",
+      apiId: "http://openbookshelf.dp.la/OB/groups/3",
+    },
+    {
+      id: "3",
+      name: "Open Textbook",
+      apiId: "http://open.minitex.org/textbooks",
+    },
+  ];
+};
+
+const getCatalogs = (): Catalog[] => {
+  const catalogString = localStorage.getItem("catalogs");
+  if (catalogString) {
+    const catalogs = JSON.parse(catalogString) as Catalog[];
+    return catalogs;
+  }
+  return getDefaultCatalogs();
+};
 
 application.onGetFeed = async (request: GetFeedRequest) => {
   if (request.apiId) {
     return makeOpdsRequest(request.apiId);
   } else {
-    return { type: "catalog", items: defaultCatalogs };
+    return { type: "catalog", items: getCatalogs() };
   }
 };
