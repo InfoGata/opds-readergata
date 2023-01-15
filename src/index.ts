@@ -13,7 +13,7 @@ import { MessageType, UiMessageType } from "./shared";
 initGlobalConverters_GENERIC();
 initGlobalConverters_OPDS();
 
-const proxyUrl = "https://cloudcors.audio-pwa.workers.dev?url=";
+const proxyUrl = "https://cloudcors-readergata.audio-pwa.workers.dev?url=";
 
 const imageRels = [
   //"http://opds-spec.org/image",
