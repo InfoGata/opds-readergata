@@ -79,7 +79,9 @@ const getAcquisitionUrls = (
 
 const makeOpdsRequest = async (url: string): Promise<Feed> => {
   const proxy = (await application.getCorsProxy()) || proxyUrl;
-  const response = await fetch(`${proxy}${url}`);
+  const response = (await application.isNetworkRequestCorsDisabled())
+    ? await application.networkRequest(url)
+    : await fetch(`${proxy}${url}`);
   const origin = new URL(url).origin;
   const responseString = await response.text();
   const xmlDom = new xmldom.DOMParser().parseFromString(responseString);
@@ -220,4 +222,30 @@ application.onGetFeed = async (request: GetFeedRequest) => {
   } else {
     return { type: "catalog", items: getCatalogs() };
   }
+};
+
+export const blobToString = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (res) => {
+      resolve(res.target?.result as string);
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsBinaryString(blob);
+  });
+};
+
+application.onGetPublication = async (request: GetPublicationRequest) => {
+  const proxy = (await application.getCorsProxy()) || proxyUrl;
+  const result = (await application.isNetworkRequestCorsDisabled())
+    ? await application.networkRequest(request.source)
+    : await fetch(`${proxy}${request.source}`);
+
+  const blob = await result.blob();
+  const response: GetPublicationResponse = {
+    source: await blobToString(blob),
+    sourceType: "binary",
+  };
+
+  return response;
 };
