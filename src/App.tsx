@@ -25,21 +25,26 @@ const App: FunctionComponent = () => {
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
   const [catalogTitle, setCatalogTitle] = useState("");
   const [catalogUrl, setCatalogUrl] = useState("");
+  const [extensionInstalled, setExtensionInstalled] = useState(true);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent<MessageType>) => {
       switch (event.data.type) {
+        case "get-info":
+          setExtensionInstalled(event.data.extensionInstalled);
+          break;
         case "get-catalogs":
           setCatalogs(event.data.catalogs);
           break;
         default:
-          const _exhaustive: never = event.data.type;
+          const _exhaustive: never = event.data;
           break;
       }
     };
 
     window.addEventListener("message", onMessage);
     sendUiMessage({ type: "get-catalogs" });
+    sendUiMessage({ type: "get-info" });
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
@@ -66,6 +71,17 @@ const App: FunctionComponent = () => {
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
       <Stack spacing={2}>
+        {!extensionInstalled && (
+          <Typography>
+            <a
+              href="https://github.com/InfoGata/infogata-extension"
+              target="_blank"
+            >
+              InfoGata Extension
+            </a>{" "}
+            must be installed to use this plugin.
+          </Typography>
+        )}
         <List>
           {catalogs.map((c) => (
             <CatalogItem

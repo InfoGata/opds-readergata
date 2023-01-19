@@ -181,6 +181,12 @@ application.onUiMessage = async (message: UiMessageType) => {
       deleteCatalog(message.catalog);
       sendCatalogs();
       break;
+    case "get-info":
+      sendMessage({
+        type: "get-info",
+        extensionInstalled: await application.isNetworkRequestCorsDisabled(),
+      });
+      break;
     default:
       const _exhaustive: never = message;
       break;

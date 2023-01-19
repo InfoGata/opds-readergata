@@ -4,5 +4,7 @@
   "version": "1.0.0",
   "description": "Get books from opds catalogs.",
   "script": "dist/index.js",
-  "options": "dist/options.html"
+  "options": "dist/options.html",
+  "updateUrl": "https://cdn.jsdelivr.net/gh/InfoGata/opds-readergata@latest/manifest.json",
+  "homepage": "https://github.com/InfoGata/opds-readergata"
 }
