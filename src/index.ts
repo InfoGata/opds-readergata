@@ -13,7 +13,7 @@ import { MessageType, UiMessageType } from "./shared";
 initGlobalConverters_GENERIC();
 initGlobalConverters_OPDS();
 
-const proxyUrl = "https://cloudcors-readergata.audio-pwa.workers.dev?url=";
+const proxyUrl = "https://vercelcors-three.vercel.app/api?url=";
 
 const imageRels = [
   //"http://opds-spec.org/image",
@@ -78,10 +78,8 @@ const getAcquisitionUrls = (
 };
 
 const makeOpdsRequest = async (url: string): Promise<Feed> => {
-  const proxy = (await application.getCorsProxy()) || proxyUrl;
-  const response = (await application.isNetworkRequestCorsDisabled())
-    ? await application.networkRequest(url)
-    : await fetch(`${proxy}${url}`);
+  const proxy = proxyUrl;
+  const response = await fetch(`${proxy}${encodeURIComponent(url)}`);
   const origin = new URL(url).origin;
   const responseString = await response.text();
   const xmlDom = new xmldom.DOMParser().parseFromString(responseString);
@@ -181,12 +179,6 @@ application.onUiMessage = async (message: UiMessageType) => {
       deleteCatalog(message.catalog);
       sendCatalogs();
       break;
-    case "get-info":
-      sendMessage({
-        type: "get-info",
-        extensionInstalled: await application.isNetworkRequestCorsDisabled(),
-      });
-      break;
     default:
       const _exhaustive: never = message;
       break;
@@ -199,11 +191,6 @@ const getDefaultCatalogs = (): Catalog[] => {
       id: "1",
       name: "SimplyE Collection",
       apiId: "https://circulation.librarysimplified.org/OPEN/",
-    },
-    {
-      id: "2",
-      name: "Open Bookshelf",
-      apiId: "http://openbookshelf.dp.la/OB/groups/3",
     },
     {
       id: "3",
@@ -242,10 +229,8 @@ export const blobToString = (blob: Blob): Promise<string> => {
 };
 
 application.onGetPublication = async (request: GetPublicationRequest) => {
-  const proxy = (await application.getCorsProxy()) || proxyUrl;
-  const result = (await application.isNetworkRequestCorsDisabled())
-    ? await application.networkRequest(request.source)
-    : await fetch(`${proxy}${request.source}`);
+  const proxy = proxyUrl;
+  const result = await fetch(`${proxy}${encodeURIComponent(request.source)}`);
 
   const blob = await result.blob();
   const response: GetPublicationResponse = {

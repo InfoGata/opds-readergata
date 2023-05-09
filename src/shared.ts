@@ -17,25 +17,15 @@ type UiDeleteCatalog = {
   catalog: Catalog;
 };
 
-type UiGetInfo = {
-  type: "get-info";
-};
-
 export type UiMessageType =
   | UiGetCatalogs
   | UiAddCatalog
   | UiUpdateCatalog
-  | UiDeleteCatalog
-  | UiGetInfo;
-
-type GetInfoType = {
-  type: "get-info";
-  extensionInstalled: boolean;
-};
+  | UiDeleteCatalog;
 
 type CatalogsType = {
   type: "get-catalogs";
   catalogs: Catalog[];
 };
 
-export type MessageType = CatalogsType | GetInfoType;
+export type MessageType = CatalogsType;
