@@ -197,6 +197,11 @@ const getDefaultCatalogs = (): Catalog[] => {
       name: "Open Textbook",
       apiId: "http://open.minitex.org/textbooks",
     },
+    {
+      id: "4",
+      name: "Project Gutenberg",
+      apiId: "https://m.gutenberg.org/ebooks.opds/",
+    },
   ];
 };
 
