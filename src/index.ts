@@ -77,6 +77,34 @@ const getAcquisitionUrls = (
   );
 };
 
+const onSearch = async (request: SearchRequest): Promise<Feed> => {
+  const searchUrl = request.searchInfo;
+  if (!searchUrl) {
+    throw new Error("Doesn't have search rule");
+  }
+  const proxy = proxyUrl;
+  const searchData = await fetch(`${proxy}${encodeURIComponent(searchUrl)}`);
+  const searchText = await searchData.text();
+  const parser = new DOMParser();
+  const openSearchDoc = parser.parseFromString(searchText, "application/xml");
+  const urls = openSearchDoc.querySelectorAll("Url");
+  const opdsUrl = Array.from(urls).find((url) =>
+    url.getAttribute("type")?.includes("application/atom+xml")
+  );
+
+  if (!opdsUrl) {
+    throw new Error("Failed to search");
+  }
+
+  const template = opdsUrl.getAttribute("template");
+  if (!template) {
+    throw new Error("Failed to search");
+  }
+  // Exmaple: https://standardebooks.org/ebooks?query={searchTerms}
+  const queryUrl = template?.replace("{searchTerms}", request.query);
+  return makeOpdsRequest(queryUrl);
+};
+
 const makeOpdsRequest = async (url: string): Promise<Feed> => {
   const proxy = proxyUrl;
   const response = await fetch(`${proxy}${encodeURIComponent(url)}`);
@@ -92,14 +120,15 @@ const makeOpdsRequest = async (url: string): Promise<Feed> => {
   }
 
   let feed = XML.deserialize<OPDS>(xmlDom, OPDS);
-  // const search = feed.Links.find((link) => linkIsRel(link, "search"));
-  // if (search) {
-  //   const absoluteReg = new RegExp("^(?:[a-z]+:)?//", "i");
-  //   const openSearchUrl = absoluteReg.test(search.Href)
-  //     ? search.Href
-  //     : `${origin}${search.Href}`;
-  //   setSearchUrl(openSearchUrl);
-  // }
+  const search = feed.Links.find((link) => linkIsRel(link, "search"));
+  let searchInfo = "";
+  if (search) {
+    const absoluteReg = new RegExp("^(?:[a-z]+:)?//", "i");
+    const openSearchUrl = absoluteReg.test(search.Href)
+      ? search.Href
+      : `${origin}${search.Href}`;
+    searchInfo = openSearchUrl;
+  }
   if (isAcquisitionFeed(feed)) {
     let books: Publication[] = feed.Entries.map(
       (e): Publication => ({
@@ -123,6 +152,8 @@ const makeOpdsRequest = async (url: string): Promise<Feed> => {
           apiId: getLink(origin, e) || "",
         })
       ),
+      searchInfo: searchInfo,
+      hasSearch: !!searchInfo,
     };
   }
 };
@@ -245,3 +276,5 @@ application.onGetPublication = async (request: GetPublicationRequest) => {
 
   return response;
 };
+
+application.onSearch = onSearch;
