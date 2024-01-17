@@ -1,32 +1,26 @@
-import { ExpandMore } from "@mui/icons-material";
-import {
-  Box,
-  CssBaseline,
-  TextField,
-  Button,
-  List,
-  Stack,
-  Accordion,
-  AccordionSummary,
-  Typography,
-  AccordionDetails,
-} from "@mui/material";
 import { nanoid } from "nanoid";
-import { FunctionComponent } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { For, createEffect, createSignal } from "solid-js";
 import CatalogItem from "./CatalogItem";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "./components/ui/accordion";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
 import { MessageType, UiMessageType } from "./shared";
 
 const sendUiMessage = (message: UiMessageType) => {
   parent.postMessage(message, "*");
 };
 
-const App: FunctionComponent = () => {
-  const [catalogs, setCatalogs] = useState<Catalog[]>([]);
-  const [catalogTitle, setCatalogTitle] = useState("");
-  const [catalogUrl, setCatalogUrl] = useState("");
+const App = () => {
+  const [catalogs, setCatalogs] = createSignal<Catalog[]>([]);
+  const [catalogTitle, setCatalogTitle] = createSignal("");
+  const [catalogUrl, setCatalogUrl] = createSignal("");
 
-  useEffect(() => {
+  createEffect(() => {
     const onMessage = (event: MessageEvent<MessageType>) => {
       switch (event.data.type) {
         case "get-catalogs":
@@ -38,13 +32,13 @@ const App: FunctionComponent = () => {
     window.addEventListener("message", onMessage);
     sendUiMessage({ type: "get-catalogs" });
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  });
 
   const onAdd = () => {
     const catalog: Catalog = {
       id: nanoid(),
-      name: catalogTitle,
-      apiId: catalogUrl,
+      name: catalogTitle(),
+      apiId: catalogUrl(),
     };
     sendUiMessage({ type: "add-catalog", catalog });
     setCatalogTitle("");
@@ -60,54 +54,44 @@ const App: FunctionComponent = () => {
   };
 
   return (
-    <Box sx={{ display: "flex" }}>
-      <CssBaseline />
-      <Stack spacing={2}>
-        <List>
-          {catalogs.map((c) => (
-            <CatalogItem
-              key={c.id}
-              catalog={c}
-              update={onUpdate}
-              remove={onRemove}
-            />
-          ))}
-        </List>
-        <Accordion>
-          <AccordionSummary expandIcon={<ExpandMore />}>
-            <Typography>Add Catalog</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack spacing={2}>
-              <TextField
+    <div class="flex flex-col gap-2 mx-4">
+      <ul>
+        <For each={catalogs()}>
+          {(c, i) => (
+            <CatalogItem catalog={c} update={onUpdate} remove={onRemove} />
+          )}
+        </For>
+      </ul>
+      <Accordion multiple={true} collapsible>
+        <AccordionItem value="item-1">
+          <AccordionTrigger>Add Catalog</AccordionTrigger>
+          <AccordionContent>
+            <div class="flex flex-col gap-2 space-y-2 p-1">
+              <Input
                 name="title"
-                label="Title"
-                value={catalogTitle}
+                placeholder="Title"
+                value={catalogTitle()}
                 onChange={(e) => {
                   setCatalogTitle(e.currentTarget.value);
                 }}
               />
-              <TextField
+              <Input
                 name="Url"
-                label="OPDS Url"
-                value={catalogUrl}
+                placeholder="OPDS Url"
+                value={catalogUrl()}
                 onChange={(e) => {
                   setCatalogUrl(e.currentTarget.value);
                 }}
               />
 
-              <Button
-                variant="contained"
-                onClick={onAdd}
-                disabled={!catalogTitle}
-              >
+              <Button onClick={onAdd} disabled={!catalogTitle()}>
                 Add
               </Button>
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
-      </Stack>
-    </Box>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    </div>
   );
 };
 

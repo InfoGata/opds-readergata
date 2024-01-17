@@ -4,28 +4,25 @@
   "description": "",
   "author": "",
   "dependencies": {
-    "@emotion/react": "^11.10.4",
-    "@emotion/styled": "^11.10.4",
-    "@mui/icons-material": "^5.11.0",
-    "@mui/material": "^5.10.9",
+    "@kobalte/core": "^0.12.0",
+    "@tabler/icons-solidjs": "^2.46.0",
     "@types/node": "^18.11.10",
     "@types/xmldom": "^0.1.30",
     "@xmldom/xmldom": "^0.8.3",
-    "axios": "^0.21.1",
+    "babel-preset-solid": "^1.8.9",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
     "nanoid": "^4.0.0",
-    "preact": "^10.11.2",
     "r2-opds-js": "^1.0.39",
-    "r2-utils-js": "^1.0.24"
+    "r2-utils-js": "^1.0.24",
+    "solid-icons": "^1.1.0",
+    "solid-js": "^1.8.11",
+    "tailwind-merge": "^2.2.0",
+    "tailwindcss-animate": "^1.0.7"
   },
   "scripts": {
     "build": "parcel build ./src/index.ts ./src/options.html --dist-dir dist/ --no-source-maps",
     "start": "parcel ./src/index.ts ./src/options.html --dist-dir dist/ --no-source-maps"
-  },
-  "alias": {
-    "react": "preact/compat",
-    "react-dom/test-utils": "preact/test-utils",
-    "react-dom": "preact/compat",
-    "react/jsx-runtime": "preact/jsx-runtime"
   },
   "devDependencies": {
     "@infogata/readergata-plugin-typings": "1.4.0",
@@ -34,7 +31,9 @@
     "buffer": "^5.7.1",
     "parcel": "^2.8.0",
     "parcel-resolver-tspaths": "^0.0.9",
+    "postcss": "^8.4.33",
     "process": "^0.11.10",
+    "tailwindcss": "^3.4.1",
     "typescript": "^4.2.3",
     "util": "^0.12.5"
   },

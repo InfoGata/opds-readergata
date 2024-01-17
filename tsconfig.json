@@ -1,12 +1,12 @@
 {
   "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "preact",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
     "module": "esnext",
     "target": "es2015",
     "moduleResolution": "node",
     "outDir": "./dist",
-    "strict":true,
+    "strict": true,
     "lib": [
       "es6",
       "es7",
@@ -25,6 +25,9 @@
       ],
       "@utils/*": [
         "node_modules/r2-utils-js/dist/es6-es2015/src/_utils/*"
+      ],
+      "~/*": [
+        "./src/*"
       ]
     },
     "typeRoots": [
@@ -36,4 +39,3 @@
     "src/**/*"
   ]
 }
-

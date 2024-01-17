@@ -1,16 +1,7 @@
-import { Close, Edit } from "@mui/icons-material";
-import {
-  Box,
-  Button,
-  Collapse,
-  IconButton,
-  ListItem,
-  ListItemText,
-  Stack,
-  TextField,
-} from "@mui/material";
-import { FunctionComponent } from "preact";
-import { useState } from "preact/hooks";
+import { Component, Show, createSignal } from "solid-js";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import { IconX, IconEdit } from "@tabler/icons-solidjs";
 
 interface CatalogItemProps {
   catalog: Catalog;
@@ -18,11 +9,11 @@ interface CatalogItemProps {
   remove: (catalog: Catalog) => void;
 }
 
-const CatalogItem: FunctionComponent<CatalogItemProps> = (props) => {
+const CatalogItem: Component<CatalogItemProps> = (props) => {
   const { catalog, update, remove } = props;
-  const [title, setTitle] = useState("");
-  const [url, setUrl] = useState("");
-  const [open, setOpen] = useState(false);
+  const [title, setTitle] = createSignal("");
+  const [url, setUrl] = createSignal("");
+  const [open, setOpen] = createSignal(false);
 
   const onEdit = () => {
     setOpen(true);
@@ -35,7 +26,7 @@ const CatalogItem: FunctionComponent<CatalogItemProps> = (props) => {
   };
 
   const onSave = () => {
-    update({ ...catalog, name: title, apiId: url });
+    update({ ...catalog, name: title(), apiId: url() });
     onClose();
   };
 
@@ -45,45 +36,37 @@ const CatalogItem: FunctionComponent<CatalogItemProps> = (props) => {
 
   return (
     <>
-      <ListItem
-        secondaryAction={
-          <IconButton
-            edge="end"
-            aria-label="edit"
-            onClick={open ? onClose : onEdit}
-          >
-            {open ? <Close /> : <Edit />}
-          </IconButton>
-        }
-      >
-        <ListItemText primary={catalog.name} secondary={catalog.apiId} />
-      </ListItem>
-      {
-        <Collapse in={open}>
-          <Stack spacing={2}>
-            <TextField
-              label="Title"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.currentTarget.value);
-              }}
-            />
-            <TextField
-              label="OPDS Url"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.currentTarget.value);
-              }}
-            />
-            <Button variant="contained" color="error" onClick={onRemove}>
-              Remove
-            </Button>
-            <Button variant="contained" color="success" onClick={onSave}>
-              Update
-            </Button>
-          </Stack>
-        </Collapse>
-      }
+      <div class="m-1 flex space-x-4 py-2 transition-all hover:bg-accent/50 hover:text-accent-foreground items-center">
+        <div class="space-y-1 w-full">
+          <p class="text-sm font-medium leading-none">{catalog.name}</p>
+          <p class="text-sm text-muted-foreground">{catalog.apiId}</p>
+        </div>
+        <Button variant="ghost" onClick={open() ? onClose : onEdit} size="icon">
+          {open() ? <IconX /> : <IconEdit />}
+        </Button>
+      </div>
+      <Show when={open()}>
+        <div class="flex flex-col gap-2">
+          <Input
+            placeholder="Title"
+            value={title()}
+            onChange={(e) => {
+              setTitle(e.currentTarget.value);
+            }}
+          />
+          <Input
+            placeholder="OPDS Url"
+            value={url()}
+            onChange={(e) => {
+              setUrl(e.currentTarget.value);
+            }}
+          />
+          <Button variant="destructive" onClick={onRemove}>
+            Remove
+          </Button>
+          <Button onClick={onSave}>Update</Button>
+        </div>
+      </Show>
     </>
   );
 };
