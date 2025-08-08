@@ -9,7 +9,8 @@ import {
 } from "@r2-opds-js/opds/init-globals";
 import { MessageType, UiMessageType } from "./shared";
 
-// window.Buffer = window.Buffer || require("buffer").Buffer;
+import { Buffer } from "buffer";
+(globalThis as any).Buffer = Buffer;
 initGlobalConverters_GENERIC();
 initGlobalConverters_OPDS();
 
