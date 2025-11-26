@@ -1,14 +1,7 @@
-import { ColorModeProvider } from "@kobalte/core";
+import { render } from "preact";
 import App from "./App";
-import { render } from "solid-js/web";
+import { ThemeProvider } from "@infogata/shadcn-vite-theme-provider";
 
 export const init = () => {
-  render(
-    () => (
-      <ColorModeProvider>
-        <App />
-      </ColorModeProvider>
-    ),
-    document.body
-  );
+  render(<ThemeProvider><App /></ThemeProvider>, document.body);
 };

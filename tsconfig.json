@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "module": "esnext",
     "target": "es2015",
     "moduleResolution": "node",

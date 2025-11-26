@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { For, createEffect, createSignal } from "solid-js";
+import { useState, useEffect } from "preact/hooks";
 import CatalogItem from "./CatalogItem";
 import {
   Accordion,
@@ -16,11 +16,11 @@ const sendUiMessage = (message: UiMessageType) => {
 };
 
 const App = () => {
-  const [catalogs, setCatalogs] = createSignal<Catalog[]>([]);
-  const [catalogTitle, setCatalogTitle] = createSignal("");
-  const [catalogUrl, setCatalogUrl] = createSignal("");
+  const [catalogs, setCatalogs] = useState<Catalog[]>([]);
+  const [catalogTitle, setCatalogTitle] = useState("");
+  const [catalogUrl, setCatalogUrl] = useState("");
 
-  createEffect(() => {
+  useEffect(() => {
     const onMessage = (event: MessageEvent<MessageType>) => {
       switch (event.data.type) {
         case "get-catalogs":
@@ -32,13 +32,13 @@ const App = () => {
     window.addEventListener("message", onMessage);
     sendUiMessage({ type: "get-catalogs" });
     return () => window.removeEventListener("message", onMessage);
-  });
+  }, []);
 
   const onAdd = () => {
     const catalog: Catalog = {
       id: nanoid(),
-      name: catalogTitle(),
-      apiId: catalogUrl(),
+      name: catalogTitle,
+      apiId: catalogUrl,
     };
     sendUiMessage({ type: "add-catalog", catalog });
     setCatalogTitle("");
@@ -54,37 +54,35 @@ const App = () => {
   };
 
   return (
-    <div class="flex flex-col gap-2 mx-4">
+    <div className="flex flex-col gap-2 mx-4">
       <ul>
-        <For each={catalogs()}>
-          {(c, i) => (
-            <CatalogItem catalog={c} update={onUpdate} remove={onRemove} />
-          )}
-        </For>
+        {catalogs.map((c) => (
+          <CatalogItem key={c.id} catalog={c} update={onUpdate} remove={onRemove} />
+        ))}
       </ul>
-      <Accordion multiple={true} collapsible>
+      <Accordion type="multiple">
         <AccordionItem value="item-1">
           <AccordionTrigger>Add Catalog</AccordionTrigger>
           <AccordionContent>
-            <div class="flex flex-col gap-2 space-y-2 p-1">
+            <div className="flex flex-col gap-2 space-y-2 p-1">
               <Input
                 name="title"
                 placeholder="Title"
-                value={catalogTitle()}
-                onChange={(e) => {
-                  setCatalogTitle(e.currentTarget.value);
+                value={catalogTitle}
+                onChange={(e: any) => {
+                  setCatalogTitle((e.target as HTMLInputElement).value);
                 }}
               />
               <Input
                 name="Url"
                 placeholder="OPDS Url"
-                value={catalogUrl()}
-                onChange={(e) => {
-                  setCatalogUrl(e.currentTarget.value);
+                value={catalogUrl}
+                onChange={(e: any) => {
+                  setCatalogUrl((e.target as HTMLInputElement).value);
                 }}
               />
 
-              <Button onClick={onAdd} disabled={!catalogTitle()}>
+              <Button onClick={onAdd} disabled={!catalogTitle}>
                 Add
               </Button>
             </div>
