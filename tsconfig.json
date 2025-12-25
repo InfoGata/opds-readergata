@@ -4,27 +4,30 @@
     "jsxImportSource": "preact",
     "module": "esnext",
     "target": "es2015",
-    "moduleResolution": "node",
-    "outDir": "./dist",
+    "moduleResolution": "bundler",
+    "noEmit": true,
     "strict": true,
+    "skipLibCheck": true,
     "lib": [
       "es6",
       "es7",
       "dom"
     ],
-    "baseUrl": ".",
     "paths": {
+      "react": ["./node_modules/preact/compat/"],
+      "react-dom": ["./node_modules/preact/compat/"],
+      "react/jsx-runtime": ["./node_modules/preact/jsx-runtime"],
       "@r2-opds-js/*": [
-        "node_modules/r2-opds-js/dist/es5/src/*"
+        "./node_modules/r2-opds-js/dist/es5/src/*"
       ],
       "@r2-utils-js/*": [
-        "node_modules/r2-utils-js/dist/es5/src/*"
+        "./node_modules/r2-utils-js/dist/es5/src/*"
       ],
       "@opds/*": [
-        "node_modules/r2-opds-js/dist/es6-es2015/src/opds/*"
+        "./node_modules/r2-opds-js/dist/es6-es2015/src/opds/*"
       ],
       "@utils/*": [
-        "node_modules/r2-utils-js/dist/es6-es2015/src/_utils/*"
+        "./node_modules/r2-utils-js/dist/es6-es2015/src/_utils/*"
       ],
       "~/*": [
         "./src/*"
