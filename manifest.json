@@ -1,7 +1,7 @@
 {
   "id": "tJlCCR6lCfx7XeU_9LQum",
   "name": "Opds Catalog",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Get books from opds catalogs.",
   "script": "dist/index.js",
   "options": "dist/options.html",
