@@ -33,10 +33,7 @@
         "./src/*"
       ]
     },
-    "typeRoots": [
-      "./node_modules/@types",
-      "./node_modules/@infogata"
-    ]
+    "types": ["@infogata/readergata-plugin-typings"]
   },
   "include": [
     "src/**/*"
