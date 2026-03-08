@@ -23,7 +23,7 @@ const imageRels = [
   "http://opds-spec.org/thumbnail",
 ];
 
-const linkIsRel = (link: Link, rel: string | ((r: string) => boolean)) => {
+export const linkIsRel = (link: Link, rel: string | ((r: string) => boolean)) => {
   if (!link.HasRel || !link.Rel) return false;
   const rels = link.Rel.split(" ");
   return typeof rel === "function"
@@ -31,7 +31,7 @@ const linkIsRel = (link: Link, rel: string | ((r: string) => boolean)) => {
     : rels.some((x) => x === rel);
 };
 
-const isCatalogEntry = (entry: Entry) => {
+export const isCatalogEntry = (entry: Entry) => {
   return (
     entry.Links &&
     entry.Links.some((link) =>
@@ -42,11 +42,11 @@ const isCatalogEntry = (entry: Entry) => {
   );
 };
 
-const isAcquisitionFeed = (feed: OPDS) => {
+export const isAcquisitionFeed = (feed: OPDS) => {
   return feed.Entries && feed.Entries.some(isCatalogEntry);
 };
 
-const getImage = (entry: Entry) => {
+export const getImage = (entry: Entry) => {
   for (const rel of imageRels) {
     const link = entry.Links.find((x) => linkIsRel(x, rel));
     if (link) {
@@ -56,7 +56,7 @@ const getImage = (entry: Entry) => {
   return "";
 };
 
-const getLink = (origin: string, entry: Entry): string | undefined => {
+export const getLink = (origin: string, entry: Entry): string | undefined => {
   let href = entry.Links.find((l) =>
     l.Type.startsWith("application/atom+xml")
   )?.Href;
@@ -64,7 +64,7 @@ const getLink = (origin: string, entry: Entry): string | undefined => {
   return `${origin}${href}`;
 };
 
-const getAcquisitionUrls = (
+export const getAcquisitionUrls = (
   origin: string,
   entry: Entry
 ): PublicationSource[] => {
@@ -170,17 +170,17 @@ const sendCatalogs = () => {
   });
 };
 
-const setCatalogs = (catalogs: Catalog[]) => {
+export const setCatalogs = (catalogs: Catalog[]) => {
   localStorage.setItem("catalogs", JSON.stringify(catalogs));
 };
 
-const addCatalog = (catalog: Catalog) => {
+export const addCatalog = (catalog: Catalog) => {
   const currentCatalogs = getCatalogs();
   currentCatalogs.push(catalog);
   setCatalogs(currentCatalogs);
 };
 
-const updateCatalog = (catalog: Catalog) => {
+export const updateCatalog = (catalog: Catalog) => {
   const currentCatalogs = getCatalogs();
   const newCatalogs = currentCatalogs.map((c) =>
     c.id === catalog.id ? catalog : c
@@ -188,7 +188,7 @@ const updateCatalog = (catalog: Catalog) => {
   setCatalogs(newCatalogs);
 };
 
-const deleteCatalog = (catalog: Catalog) => {
+export const deleteCatalog = (catalog: Catalog) => {
   const currentCatalogs = getCatalogs();
   const newCatalogs = currentCatalogs.filter((c) => c.id !== catalog.id);
   setCatalogs(newCatalogs);
@@ -217,7 +217,7 @@ application.onUiMessage = async (message: UiMessageType) => {
   }
 };
 
-const getDefaultCatalogs = (): Catalog[] => {
+export const getDefaultCatalogs = (): Catalog[] => {
   return [
     {
       id: "1",
@@ -237,7 +237,7 @@ const getDefaultCatalogs = (): Catalog[] => {
   ];
 };
 
-const getCatalogs = (): Catalog[] => {
+export const getCatalogs = (): Catalog[] => {
   const catalogString = localStorage.getItem("catalogs");
   if (catalogString) {
     const catalogs = JSON.parse(catalogString) as Catalog[];

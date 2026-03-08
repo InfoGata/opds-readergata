@@ -23,18 +23,24 @@
   "scripts": {
     "build": "tsc && npm run build:options && npm run build:plugin",
     "build:options": "vite build --config vite.config.ts",
-    "build:plugin": "vite build --config plugin.vite.config.ts"
+    "build:plugin": "vite build --config plugin.vite.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@infogata/readergata-plugin-typings": "1.7.0",
     "@preact/preset-vite": "^2.8.2",
     "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/preact": "^3.2.4",
     "buffer": "^5.7.1",
+    "jsdom": "^28.1.0",
     "process": "^0.11.10",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
     "util": "^0.12.5",
-    "vite": "^6.2.4"
+    "vite": "^6.2.4",
+    "vitest": "^4.0.18"
   },
   "browserslist": [
     "last 1 Chrome version"
