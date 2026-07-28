@@ -1,5 +1,6 @@
 {
   "id": "tJlCCR6lCfx7XeU_9LQum",
+  "alias": "opds",
   "name": "Opds Catalog",
   "version": "1.7.0",
   "description": "Get books from opds catalogs.",
