@@ -6,6 +6,11 @@ import {
   getImage,
   getLink,
   getAcquisitionUrls,
+  getAcquisitionType,
+  getEntryUrl,
+  getOriginalUrl,
+  toIsoDate,
+  entryToPublication,
   getCatalogs,
   setCatalogs,
   addCatalog,
@@ -21,6 +26,8 @@ const makeLink = (
     Rel: string;
     Type: string;
     Title: string;
+    OpdsPrice: number;
+    OpdsPriceCurrencyCode: string;
     HasRel: (rel: string) => boolean;
   }> = {}
 ) => ({
@@ -35,13 +42,15 @@ const makeLink = (
 // Helper to create mock Entry objects
 const makeEntry = (
   links: ReturnType<typeof makeLink>[] = [],
-  title = "Test Entry"
+  title = "Test Entry",
+  fields: Record<string, unknown> = {}
 ) =>
   ({
     Title: title,
     Links: links,
     Authors: [],
     Summary: "",
+    ...fields,
   }) as any;
 
 describe("linkIsRel", () => {
@@ -193,8 +202,30 @@ describe("getAcquisitionUrls", () => {
         name: "EPUB",
         source: "https://example.com/books/1.epub",
         type: "application/epub+zip",
+        price: undefined,
+        currency: undefined,
+        acquisitionType: "open-access",
       },
     ]);
+  });
+
+  it("carries price and currency when the catalog charges for a book", () => {
+    const entry = makeEntry([
+      makeLink({
+        Rel: "http://opds-spec.org/acquisition/buy",
+        Href: "/books/2.epub",
+        Type: "application/epub+zip",
+        Title: "Buy",
+        OpdsPrice: 9.99,
+        OpdsPriceCurrencyCode: "USD",
+      }),
+    ]);
+    const result = getAcquisitionUrls("https://example.com", entry);
+    expect(result[0]).toMatchObject({
+      price: 9.99,
+      currency: "USD",
+      acquisitionType: "buy",
+    });
   });
 
   it("keeps absolute hrefs unchanged", () => {
@@ -208,6 +239,226 @@ describe("getAcquisitionUrls", () => {
     ]);
     const result = getAcquisitionUrls("https://example.com", entry);
     expect(result[0].source).toBe("https://cdn.example.com/book.epub");
+  });
+});
+
+describe("getAcquisitionType", () => {
+  it.each([
+    ["open-access", "open-access"],
+    ["borrow", "borrow"],
+    ["buy", "buy"],
+    ["sample", "sample"],
+    ["subscribe", "subscribe"],
+  ])("maps the %s rel suffix", (suffix, expected) => {
+    const link = makeLink({
+      Rel: `http://opds-spec.org/acquisition/${suffix}`,
+    });
+    expect(getAcquisitionType(link as any)).toBe(expected);
+  });
+
+  it("is undefined for the bare acquisition rel, which says nothing", () => {
+    const link = makeLink({ Rel: "http://opds-spec.org/acquisition" });
+    expect(getAcquisitionType(link as any)).toBeUndefined();
+  });
+
+  it("is undefined for a suffix it does not know", () => {
+    const link = makeLink({ Rel: "http://opds-spec.org/acquisition/rent" });
+    expect(getAcquisitionType(link as any)).toBeUndefined();
+  });
+});
+
+describe("getEntryUrl", () => {
+  it("prefers an explicit entry document", () => {
+    const entry = makeEntry([
+      makeLink({ Rel: "self", Href: "/self" }),
+      makeLink({
+        Href: "/entry",
+        Type: "application/atom+xml;type=entry;profile=opds-catalog",
+      }),
+    ]);
+    expect(getEntryUrl("https://example.com", entry)).toBe(
+      "https://example.com/entry"
+    );
+  });
+
+  it("falls back to the self link", () => {
+    const entry = makeEntry([
+      makeLink({ Rel: "self", Href: "/self" }),
+      makeLink({ Rel: "alternate", Href: "/alt", Type: "text/html" }),
+    ]);
+    expect(getEntryUrl("https://example.com", entry)).toBe(
+      "https://example.com/self"
+    );
+  });
+
+  it("falls back to an atom alternate", () => {
+    const entry = makeEntry([
+      makeLink({
+        Rel: "alternate",
+        Href: "/alt",
+        Type: "application/atom+xml",
+      }),
+    ]);
+    expect(getEntryUrl("https://example.com", entry)).toBe(
+      "https://example.com/alt"
+    );
+  });
+
+  it("keeps absolute hrefs unchanged", () => {
+    const entry = makeEntry([
+      makeLink({ Rel: "self", Href: "https://other.example.com/e" }),
+    ]);
+    expect(getEntryUrl("https://example.com", entry)).toBe(
+      "https://other.example.com/e"
+    );
+  });
+
+  it("is undefined when the feed offers no link to the entry itself", () => {
+    const entry = makeEntry([
+      makeLink({
+        Rel: "http://opds-spec.org/acquisition",
+        Href: "/books/1.epub",
+      }),
+    ]);
+    expect(getEntryUrl("https://example.com", entry)).toBeUndefined();
+  });
+});
+
+describe("getOriginalUrl", () => {
+  it("finds the html page for the book", () => {
+    const entry = makeEntry([
+      makeLink({ Rel: "alternate", Href: "/book/1", Type: "text/html" }),
+    ]);
+    expect(getOriginalUrl("https://example.com", entry)).toBe(
+      "https://example.com/book/1"
+    );
+  });
+
+  it("is undefined when there is no html alternate", () => {
+    const entry = makeEntry([makeLink({ Rel: "self", Href: "/self" })]);
+    expect(getOriginalUrl("https://example.com", entry)).toBeUndefined();
+  });
+});
+
+describe("toIsoDate", () => {
+  it("keeps a bare year verbatim", () => {
+    expect(toIsoDate("1818")).toBe("1818");
+  });
+
+  it("converts a Date, which is what r2 hands back for Published", () => {
+    const date = new Date("2019-04-02T00:00:00.000Z");
+    expect(toIsoDate(date)).toBe("2019-04-02T00:00:00.000Z");
+  });
+
+  it("parses a date string", () => {
+    expect(toIsoDate("2019-04-02")).toBe("2019-04-02T00:00:00.000Z");
+  });
+
+  it("is undefined for nonsense and for nothing at all", () => {
+    expect(toIsoDate("not a date")).toBeUndefined();
+    expect(toIsoDate(new Date("nope"))).toBeUndefined();
+    expect(toIsoDate(undefined)).toBeUndefined();
+  });
+});
+
+describe("entryToPublication", () => {
+  it("maps everything a rich entry carries", () => {
+    const entry = makeEntry(
+      [
+        makeLink({ Rel: "self", Href: "/entry/1" }),
+        makeLink({ Rel: "alternate", Href: "/book/1", Type: "text/html" }),
+        makeLink({
+          Rel: "http://opds-spec.org/image/thumbnail",
+          Href: "https://example.com/cover.jpg",
+        }),
+        makeLink({
+          Rel: "http://opds-spec.org/acquisition/open-access",
+          Href: "/books/1.epub",
+          Type: "application/epub+zip",
+          Title: "EPUB",
+        }),
+      ],
+      "Frankenstein",
+      {
+        SubTitle: "Or, The Modern Prometheus",
+        Authors: [{ Name: "Mary Shelley", Uri: "https://example.com/shelley" }],
+        Summary: "A scientist and his creature.",
+        DcPublisher: "Lackington",
+        DcLanguage: "en",
+        DcIssued: "1818",
+        Categories: [
+          { Term: "FIC015000", Label: "Horror", Scheme: "bisac" },
+          { Term: "Gothic" },
+        ],
+        Series: [{ Name: "Gothic Classics", Position: 3 }],
+        DcExtent: "280",
+        DcRights: "Public domain",
+        DcIdentifier: "9780486282114",
+        DcIdentifierType: "ISBN",
+        SchemaRatingValue: "4.5",
+      }
+    );
+
+    expect(entryToPublication("https://example.com", entry)).toEqual({
+      title: "Frankenstein",
+      subtitle: "Or, The Modern Prometheus",
+      apiId: "https://example.com/entry/1",
+      authors: [{ name: "Mary Shelley", url: "https://example.com/shelley" }],
+      images: [{ url: "https://example.com/cover.jpg" }],
+      summary: "A scientist and his creature.",
+      publisher: "Lackington",
+      languages: ["en"],
+      published: "1818",
+      categories: [
+        { name: "Horror", scheme: "bisac" },
+        { name: "Gothic", scheme: undefined },
+      ],
+      series: { name: "Gothic Classics", position: 3 },
+      pageCount: 280,
+      rights: "Public domain",
+      identifiers: [{ type: "isbn", value: "9780486282114" }],
+      rating: 4.5,
+      sources: [
+        {
+          name: "EPUB",
+          source: "https://example.com/books/1.epub",
+          type: "application/epub+zip",
+          price: undefined,
+          currency: undefined,
+          acquisitionType: "open-access",
+        },
+      ],
+      originalUrl: "https://example.com/book/1",
+    });
+  });
+
+  it("leaves out everything a bare entry does not have", () => {
+    const publication = entryToPublication(
+      "https://example.com",
+      makeEntry([], "Untitled")
+    );
+
+    expect(publication.title).toBe("Untitled");
+    expect(publication.apiId).toBeUndefined();
+    expect(publication.subtitle).toBeUndefined();
+    expect(publication.publisher).toBeUndefined();
+    expect(publication.published).toBeUndefined();
+    expect(publication.series).toBeUndefined();
+    expect(publication.pageCount).toBeUndefined();
+    expect(publication.rating).toBeUndefined();
+    expect(publication.identifiers).toBeUndefined();
+    expect(publication.originalUrl).toBeUndefined();
+    expect(publication.sources).toEqual([]);
+  });
+
+  it("falls back to Content when there is no Summary", () => {
+    const entry = makeEntry([], "Book", {
+      Summary: "",
+      Content: "<p>From the content element.</p>",
+    });
+    expect(entryToPublication("https://example.com", entry).summary).toBe(
+      "<p>From the content element.</p>"
+    );
   });
 });
 

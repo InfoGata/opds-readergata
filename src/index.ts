@@ -64,19 +64,149 @@ export const getLink = (origin: string, entry: Entry): string | undefined => {
   return `${origin}${href}`;
 };
 
+const acquisitionRel = "http://opds-spec.org/acquisition";
+
+const acquisitionTypes: Record<string, AcquisitionType> = {
+  "open-access": "open-access",
+  borrow: "borrow",
+  buy: "buy",
+  sample: "sample",
+  subscribe: "subscribe",
+};
+
+/**
+ * The kind of acquisition a link offers, from the suffix of its rel. The bare
+ * `.../acquisition` rel says nothing about how, so it stays undefined.
+ */
+export const getAcquisitionType = (link: Link): AcquisitionType | undefined => {
+  const rel = link.Rel?.split(" ").find((r) => r.startsWith(acquisitionRel));
+  if (!rel || rel === acquisitionRel) return undefined;
+  return acquisitionTypes[rel.slice(acquisitionRel.length + 1)];
+};
+
 export const getAcquisitionUrls = (
   origin: string,
   entry: Entry
 ): PublicationSource[] => {
-  const acquisitionUrl = "http://opds-spec.org/acquisition";
-  return entry.Links.filter((l) => l.Rel.startsWith(acquisitionUrl)).map(
+  return entry.Links.filter((l) => l.Rel.startsWith(acquisitionRel)).map(
     (l): PublicationSource => ({
       name: l.Title,
       source: l.Href.indexOf("://") === -1 ? `${origin}${l.Href}` : l.Href,
       type: l.Type,
+      price: l.OpdsPrice,
+      currency: l.OpdsPriceCurrencyCode,
+      acquisitionType: getAcquisitionType(l),
     })
   );
 };
+
+const toAbsoluteUrl = (origin: string, href: string) =>
+  href.indexOf("://") === -1
+    ? `${origin}${href.startsWith("/") ? href : `/${href}`}`
+    : href;
+
+/**
+ * Url of the entry's own OPDS document, which is what `apiId` points at and
+ * what `onGetPublicationDetails` is later handed back.
+ *
+ * Feeds advertise this in three different ways and plenty don't advertise it
+ * at all — those publications simply don't get a page of their own.
+ */
+export const getEntryUrl = (
+  origin: string,
+  entry: Entry
+): string | undefined => {
+  const candidates = [
+    // An explicit entry document, the OPDS way of saying "the full record".
+    (l: Link) => l.Type?.includes("type=entry"),
+    (l: Link) => linkIsRel(l, "self"),
+    (l: Link) =>
+      linkIsRel(l, "alternate") && l.Type?.startsWith("application/atom+xml"),
+  ];
+
+  for (const matches of candidates) {
+    const link = entry.Links?.find(matches);
+    if (link?.Href) return toAbsoluteUrl(origin, link.Href);
+  }
+  return undefined;
+};
+
+/** The human-readable page for this book on the catalog's own site. */
+export const getOriginalUrl = (
+  origin: string,
+  entry: Entry
+): string | undefined => {
+  const link = entry.Links?.find(
+    (l) => linkIsRel(l, "alternate") && l.Type?.startsWith("text/html")
+  );
+  return link?.Href ? toAbsoluteUrl(origin, link.Href) : undefined;
+};
+
+/**
+ * Normalizes the several date shapes an entry can carry into an ISO string.
+ *
+ * `DcIssued` arrives as a string but `Published`/`Updated` are already `Date`
+ * objects, converted by r2's xml mapper — and either can be nonsense.
+ */
+export const toIsoDate = (value: string | Date | undefined) => {
+  if (!value) return undefined;
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? undefined : value.toISOString();
+  }
+  // Bare years are common and worth keeping verbatim rather than anchoring to
+  // a January 1st that the catalog never claimed.
+  if (/^\d{4}$/.test(value.trim())) return value.trim();
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+};
+
+const toNumber = (value: string | undefined) => {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+/**
+ * The one place an OPDS entry becomes a Publication, shared by the feed
+ * listing and the single-entry detail fetch so that a book doesn't change
+ * shape when you click on it.
+ */
+export const entryToPublication = (
+  origin: string,
+  entry: Entry
+): Publication => ({
+  title: entry.Title,
+  subtitle: entry.SubTitle || undefined,
+  apiId: getEntryUrl(origin, entry),
+  authors: entry.Authors?.map(
+    (a): Author => ({ name: a.Name, url: a.Uri || undefined })
+  ),
+  images: [{ url: getImage(entry) }],
+  summary: entry.Summary || entry.Content || undefined,
+  publisher: entry.DcPublisher || undefined,
+  languages: entry.DcLanguage ? [entry.DcLanguage] : undefined,
+  published: toIsoDate(entry.DcIssued) ?? toIsoDate(entry.Published),
+  categories: entry.Categories?.map(
+    (c): Category => ({ name: c.Label || c.Term, scheme: c.Scheme || undefined })
+  ),
+  // r2 models this as a list, though a book belongs to one series in practice.
+  series: entry.Series?.[0]
+    ? { name: entry.Series[0].Name, position: entry.Series[0].Position }
+    : undefined,
+  pageCount: toNumber(entry.DcExtent),
+  rights: entry.DcRights || undefined,
+  identifiers: entry.DcIdentifier
+    ? [
+        {
+          type: (entry.DcIdentifierType || "urn").toLowerCase(),
+          value: entry.DcIdentifier,
+        },
+      ]
+    : undefined,
+  rating: toNumber(entry.SchemaRatingValue),
+  sources: getAcquisitionUrls(origin, entry),
+  originalUrl: getOriginalUrl(origin, entry),
+});
 
 const onSearch = async (request: SearchRequest): Promise<Feed> => {
   const searchUrl = request.searchInfo;
@@ -106,18 +236,22 @@ const onSearch = async (request: SearchRequest): Promise<Feed> => {
   return makeOpdsRequest(queryUrl);
 };
 
-const makeOpdsRequest = async (url: string): Promise<Feed> => {
-  const proxy = proxyUrl;
-  const response = await fetch(`${proxy}${encodeURIComponent(url)}`);
-  const origin = new URL(url).origin;
+const fetchOpdsDocument = async (url: string) => {
+  const response = await fetch(`${proxyUrl}${encodeURIComponent(url)}`);
   const responseString = await response.text();
   const xmlDom = new xmldom.DOMParser().parseFromString(responseString);
   if (!xmlDom || !xmlDom.documentElement) {
-    throw new Error();
+    throw new Error(`Not valid XML: ${url}`);
   }
-  const isEntry = xmlDom.documentElement.localName === "entry";
-  if (isEntry) {
-    throw new Error();
+  return { origin: new URL(url).origin, xmlDom };
+};
+
+const makeOpdsRequest = async (url: string): Promise<Feed> => {
+  const { origin, xmlDom } = await fetchOpdsDocument(url);
+  // A single entry is a publication, not a catalog. Reaching one here means a
+  // catalog apiId pointed at a book.
+  if (xmlDom.documentElement.localName === "entry") {
+    throw new Error(`Expected a feed but got a single entry: ${url}`);
   }
 
   let feed = XML.deserialize<OPDS>(xmlDom, OPDS);
@@ -131,14 +265,8 @@ const makeOpdsRequest = async (url: string): Promise<Feed> => {
     searchInfo = openSearchUrl;
   }
   if (isAcquisitionFeed(feed)) {
-    let books: Publication[] = feed.Entries.map(
-      (e): Publication => ({
-        title: e.Title,
-        authors: e.Authors?.map((a) => ({ name: a.Name })),
-        images: [{ url: getImage(e) }],
-        summary: e.Summary,
-        sources: getAcquisitionUrls(origin, e),
-      })
+    let books: Publication[] = feed.Entries.map((e) =>
+      entryToPublication(origin, e)
     );
     return {
       type: "publication",
@@ -265,17 +393,35 @@ export const blobToString = (blob: Blob): Promise<string> => {
   });
 };
 
-application.onGetPublication = async (request: GetPublicationRequest) => {
+application.onGetPublicationSource = async (
+  request: GetPublicationSourceRequest
+) => {
   const proxy = proxyUrl;
   const result = await fetch(`${proxy}${encodeURIComponent(request.source)}`);
 
   const blob = await result.blob();
-  const response: GetPublicationResponse = {
+  const response: GetPublicationSourceResponse = {
     source: await blobToString(blob),
     sourceType: "binary",
   };
 
   return response;
+};
+
+application.onGetPublicationDetails = async (
+  request: GetPublicationDetailsRequest
+): Promise<Publication> => {
+  const { origin, xmlDom } = await fetchOpdsDocument(request.apiId);
+  // The url usually resolves to a bare <entry> document, but some servers
+  // answer it with a feed holding that one entry instead.
+  const entry =
+    xmlDom.documentElement.localName === "entry"
+      ? XML.deserialize<Entry>(xmlDom, Entry)
+      : XML.deserialize<OPDS>(xmlDom, OPDS).Entries?.[0];
+  if (!entry) {
+    throw new Error(`No entry at ${request.apiId}`);
+  }
+  return entryToPublication(origin, entry);
 };
 
 application.onSearch = onSearch;

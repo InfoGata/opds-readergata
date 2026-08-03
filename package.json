@@ -1,6 +1,6 @@
 {
   "name": "opds-readergata",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "",
   "author": "",
   "dependencies": {
@@ -28,7 +28,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@infogata/readergata-plugin-typings": "1.7.0",
+    "@infogata/readergata-plugin-typings": "2.0.0",
     "@preact/preset-vite": "^2.10.5",
     "@tailwindcss/vite": "^4.3.1",
     "@testing-library/jest-dom": "^6.9.1",
