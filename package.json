@@ -1,6 +1,6 @@
 {
   "name": "opds-readergata",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "",
   "author": "",
   "dependencies": {
@@ -9,11 +9,11 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@types/node": "^22.19.3",
     "@types/xmldom": "^0.1.30",
-    "@xmldom/xmldom": "^0.8.3",
+    "@xmldom/xmldom": "^0.8.15",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "lucide-react": "^0.400.0",
-    "nanoid": "^4.0.0",
+    "nanoid": "^5.1.16",
     "preact": "^10.11.2",
     "r2-opds-js": "^1.0.47",
     "r2-utils-js": "^1.0.24",
@@ -40,7 +40,7 @@
     "typescript": "^5.7.0",
     "util": "^0.12.5",
     "vite": "^8.0.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.11"
   },
   "browserslist": [
     "last 1 Chrome version"
