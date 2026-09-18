@@ -131,6 +131,40 @@ export const getEntryUrl = (
   return undefined;
 };
 
+/**
+ * An apiId for an entry that has no url of its own: the document it was listed
+ * in, with the entry's atom id as the fragment. Project Gutenberg is the
+ * common case — its entries carry acquisition and related links but nothing
+ * pointing back at the entry.
+ *
+ * The id is encoded, so the last `#` is always the one added here.
+ */
+export const toEntryApiId = (documentUrl: string, entryId: string) =>
+  `${documentUrl}#${encodeURIComponent(entryId)}`;
+
+export const parseEntryApiId = (
+  apiId: string
+): { url: string; entryId?: string } => {
+  const hash = apiId.lastIndexOf("#");
+  if (hash === -1) return { url: apiId };
+  return {
+    url: apiId.slice(0, hash),
+    entryId: decodeURIComponent(apiId.slice(hash + 1)),
+  };
+};
+
+/**
+ * The entry an apiId names within a fetched feed. Without an id it is the
+ * first, for servers that answer an entry url with a feed of one.
+ */
+export const findEntry = (
+  entries: Entry[] | undefined,
+  entryId?: string
+): Entry | undefined =>
+  entryId === undefined
+    ? entries?.[0]
+    : entries?.find((e) => e.Id?.trim() === entryId);
+
 /** The human-readable page for this book on the catalog's own site. */
 export const getOriginalUrl = (
   origin: string,
@@ -170,14 +204,22 @@ const toNumber = (value: string | undefined) => {
  * The one place an OPDS entry becomes a Publication, shared by the feed
  * listing and the single-entry detail fetch so that a book doesn't change
  * shape when you click on it.
+ *
+ * `documentUrl` is where the entry was found, the fallback address for one
+ * that doesn't link to itself.
  */
 export const entryToPublication = (
   origin: string,
-  entry: Entry
+  entry: Entry,
+  documentUrl?: string
 ): Publication => ({
   title: entry.Title,
   subtitle: entry.SubTitle || undefined,
-  apiId: getEntryUrl(origin, entry),
+  apiId:
+    getEntryUrl(origin, entry) ??
+    (documentUrl && entry.Id?.trim()
+      ? toEntryApiId(documentUrl, entry.Id.trim())
+      : undefined),
   authors: entry.Authors?.map(
     (a): Author => ({ name: a.Name, url: a.Uri || undefined })
   ),
@@ -266,7 +308,7 @@ const makeOpdsRequest = async (url: string): Promise<Feed> => {
   }
   if (isAcquisitionFeed(feed)) {
     let books: Publication[] = feed.Entries.map((e) =>
-      entryToPublication(origin, e)
+      entryToPublication(origin, e, url)
     );
     return {
       type: "publication",
@@ -411,17 +453,19 @@ application.onGetPublicationSource = async (
 application.onGetPublicationDetails = async (
   request: GetPublicationDetailsRequest
 ): Promise<Publication> => {
-  const { origin, xmlDom } = await fetchOpdsDocument(request.apiId);
+  const { url, entryId } = parseEntryApiId(request.apiId);
+  const { origin, xmlDom } = await fetchOpdsDocument(url);
   // The url usually resolves to a bare <entry> document, but some servers
-  // answer it with a feed holding that one entry instead.
+  // answer it with a feed holding that one entry instead, and an apiId made
+  // by toEntryApiId points at a feed that lists it among others.
   const entry =
     xmlDom.documentElement.localName === "entry"
       ? XML.deserialize<Entry>(xmlDom, Entry)
-      : XML.deserialize<OPDS>(xmlDom, OPDS).Entries?.[0];
+      : findEntry(XML.deserialize<OPDS>(xmlDom, OPDS).Entries, entryId);
   if (!entry) {
     throw new Error(`No entry at ${request.apiId}`);
   }
-  return entryToPublication(origin, entry);
+  return entryToPublication(origin, entry, url);
 };
 
 application.onSearch = onSearch;

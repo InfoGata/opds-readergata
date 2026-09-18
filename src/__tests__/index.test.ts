@@ -11,6 +11,9 @@ import {
   getOriginalUrl,
   toIsoDate,
   entryToPublication,
+  toEntryApiId,
+  parseEntryApiId,
+  findEntry,
   getCatalogs,
   setCatalogs,
   addCatalog,
@@ -361,6 +364,50 @@ describe("toIsoDate", () => {
   });
 });
 
+describe("entry apiIds", () => {
+  it("round-trips a document url and an entry id", () => {
+    const apiId = toEntryApiId(
+      "https://m.gutenberg.org/ebooks/2701.opds",
+      "urn:gutenberg:2701:3"
+    );
+    expect(parseEntryApiId(apiId)).toEqual({
+      url: "https://m.gutenberg.org/ebooks/2701.opds",
+      entryId: "urn:gutenberg:2701:3",
+    });
+  });
+
+  it("survives an id containing a #", () => {
+    const apiId = toEntryApiId("https://example.com/feed", "tag:x#1");
+    expect(parseEntryApiId(apiId)).toEqual({
+      url: "https://example.com/feed",
+      entryId: "tag:x#1",
+    });
+  });
+
+  it("leaves a plain entry url alone", () => {
+    expect(parseEntryApiId("https://example.com/entry/1")).toEqual({
+      url: "https://example.com/entry/1",
+    });
+  });
+});
+
+describe("findEntry", () => {
+  const first = makeEntry([], "First", { Id: "urn:1" });
+  const second = makeEntry([], "Second", { Id: " urn:2\n" });
+
+  it("picks the entry with the id", () => {
+    expect(findEntry([first, second], "urn:2")).toBe(second);
+  });
+
+  it("is the first entry when no id is asked for", () => {
+    expect(findEntry([first, second])).toBe(first);
+  });
+
+  it("is undefined when the id is not there", () => {
+    expect(findEntry([first, second], "urn:3")).toBeUndefined();
+  });
+});
+
 describe("entryToPublication", () => {
   it("maps everything a rich entry carries", () => {
     const entry = makeEntry(
@@ -449,6 +496,27 @@ describe("entryToPublication", () => {
     expect(publication.identifiers).toBeUndefined();
     expect(publication.originalUrl).toBeUndefined();
     expect(publication.sources).toEqual([]);
+  });
+
+  it("addresses an entry with no link to itself by where it was listed", () => {
+    const entry = makeEntry([], "Moby Dick", { Id: "urn:gutenberg:2701:3" });
+    expect(
+      entryToPublication(
+        "https://m.gutenberg.org",
+        entry,
+        "https://m.gutenberg.org/ebooks/2701.opds"
+      ).apiId
+    ).toBe("https://m.gutenberg.org/ebooks/2701.opds#urn%3Agutenberg%3A2701%3A3");
+  });
+
+  it("prefers the entry's own url to the fallback", () => {
+    const entry = makeEntry([makeLink({ Rel: "self", Href: "/entry/1" })], "A", {
+      Id: "urn:1",
+    });
+    expect(
+      entryToPublication("https://example.com", entry, "https://example.com/feed")
+        .apiId
+    ).toBe("https://example.com/entry/1");
   });
 
   it("falls back to Content when there is no Summary", () => {
