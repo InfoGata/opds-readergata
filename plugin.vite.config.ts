@@ -12,16 +12,8 @@ export default defineConfig({
       "react": "preact/compat",
       "react-dom/test-utils": "preact/test-utils",
       "react-dom": "preact/compat",
-      "react/jsx-runtime": "preact/jsx-runtime",
-      "@r2-opds-js/opds/opds1/opds": path.resolve(__dirname, 'node_modules/r2-opds-js/dist/es6-es2015/src/opds/opds1/opds.js'),
-      "@r2-opds-js/opds/opds1/opds-entry": path.resolve(__dirname, 'node_modules/r2-opds-js/dist/es6-es2015/src/opds/opds1/opds-entry.js'),
-      "@r2-utils-js/_utils/xml-js-mapper": path.resolve(__dirname, 'node_modules/r2-utils-js/dist/es6-es2015/src/_utils/xml-js-mapper/xml.js'),
-      "@r2-opds-js/opds/opds1/opds-link": path.resolve(__dirname, 'node_modules/r2-opds-js/dist/es6-es2015/src/opds/opds1/opds-link.js'),
-      "@r2-opds-js/opds/init-globals": path.resolve(__dirname, 'node_modules/r2-opds-js/dist/es6-es2015/src/opds/init-globals.js')
+      "react/jsx-runtime": "preact/jsx-runtime"
     }
-  },
-  define: {
-    global: 'globalThis'
   },
   build: {
     minify: true,

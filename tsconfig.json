@@ -17,18 +17,6 @@
       "react": ["./node_modules/preact/compat/"],
       "react-dom": ["./node_modules/preact/compat/"],
       "react/jsx-runtime": ["./node_modules/preact/jsx-runtime"],
-      "@r2-opds-js/*": [
-        "./node_modules/r2-opds-js/dist/es5/src/*"
-      ],
-      "@r2-utils-js/*": [
-        "./node_modules/r2-utils-js/dist/es5/src/*"
-      ],
-      "@opds/*": [
-        "./node_modules/r2-opds-js/dist/es6-es2015/src/opds/*"
-      ],
-      "@utils/*": [
-        "./node_modules/r2-utils-js/dist/es6-es2015/src/_utils/*"
-      ],
       "~/*": [
         "./src/*"
       ]

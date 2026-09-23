@@ -21,94 +21,79 @@ import {
   deleteCatalog,
   getDefaultCatalogs,
 } from "../index";
+import type { OpdsEntry, OpdsLink } from "../opds";
 
-// Helper to create mock Link objects
-const makeLink = (
-  overrides: Partial<{
-    Href: string;
-    Rel: string;
-    Type: string;
-    Title: string;
-    OpdsPrice: number;
-    OpdsPriceCurrencyCode: string;
-    HasRel: (rel: string) => boolean;
-  }> = {}
-) => ({
-  Href: "",
-  Rel: "",
-  Type: "",
-  Title: "",
-  HasRel: (rel: string) => overrides.Rel === rel,
+const makeLink = (overrides: Partial<OpdsLink> = {}): OpdsLink => ({
+  href: "",
+  rel: "",
+  type: "",
   ...overrides,
 });
 
-// Helper to create mock Entry objects
 const makeEntry = (
-  links: ReturnType<typeof makeLink>[] = [],
+  links: OpdsLink[] = [],
   title = "Test Entry",
-  fields: Record<string, unknown> = {}
-) =>
-  ({
-    Title: title,
-    Links: links,
-    Authors: [],
-    Summary: "",
-    ...fields,
-  }) as any;
+  fields: Partial<OpdsEntry> = {}
+): OpdsEntry => ({
+  title,
+  links,
+  authors: [],
+  categories: [],
+  ...fields,
+});
 
 describe("linkIsRel", () => {
   it("returns true when link Rel matches string", () => {
-    const link = makeLink({ Rel: "search" });
-    expect(linkIsRel(link as any, "search")).toBe(true);
+    const link = makeLink({ rel: "search" });
+    expect(linkIsRel(link, "search")).toBe(true);
   });
 
   it("returns false when link Rel does not match", () => {
-    const link = makeLink({ Rel: "search" });
-    expect(linkIsRel(link as any, "other")).toBe(false);
+    const link = makeLink({ rel: "search" });
+    expect(linkIsRel(link, "other")).toBe(false);
   });
 
   it("handles space-separated multi-value Rel", () => {
     const link = makeLink({
-      Rel: "http://opds-spec.org/acquisition open-access",
+      rel: "http://opds-spec.org/acquisition open-access",
     });
     expect(
-      linkIsRel(link as any, "http://opds-spec.org/acquisition")
+      linkIsRel(link, "http://opds-spec.org/acquisition")
     ).toBe(true);
-    expect(linkIsRel(link as any, "open-access")).toBe(true);
-    expect(linkIsRel(link as any, "missing")).toBe(false);
+    expect(linkIsRel(link, "open-access")).toBe(true);
+    expect(linkIsRel(link, "missing")).toBe(false);
   });
 
   it("works with function predicate", () => {
     const link = makeLink({
-      Rel: "http://opds-spec.org/acquisition/open-access",
+      rel: "http://opds-spec.org/acquisition/open-access",
     });
     expect(
-      linkIsRel(link as any, (r) =>
+      linkIsRel(link, (r) =>
         r.startsWith("http://opds-spec.org/acquisition")
       )
     ).toBe(true);
-    expect(linkIsRel(link as any, (r) => r.startsWith("other"))).toBe(
+    expect(linkIsRel(link, (r) => r.startsWith("other"))).toBe(
       false
     );
   });
 
-  it("returns false when HasRel is falsy", () => {
-    const link = { Href: "", Rel: "", Type: "", Title: "", HasRel: undefined };
-    expect(linkIsRel(link as any, "search")).toBe(false);
+  it("returns false when the link has no rel", () => {
+    expect(linkIsRel(makeLink(), "search")).toBe(false);
   });
 });
 
 describe("isCatalogEntry", () => {
   it("returns true for entry with acquisition links", () => {
     const entry = makeEntry([
-      makeLink({ Rel: "http://opds-spec.org/acquisition/open-access" }),
+      makeLink({ rel: "http://opds-spec.org/acquisition/open-access" }),
     ]);
     expect(isCatalogEntry(entry)).toBe(true);
   });
 
   it("returns false for entry without acquisition links", () => {
     const entry = makeEntry([
-      makeLink({ Rel: "http://opds-spec.org/image/thumbnail" }),
+      makeLink({ rel: "http://opds-spec.org/image/thumbnail" }),
     ]);
     expect(isCatalogEntry(entry)).toBe(false);
   });
@@ -117,21 +102,23 @@ describe("isCatalogEntry", () => {
 describe("isAcquisitionFeed", () => {
   it("returns true when feed has acquisition entries", () => {
     const feed = {
-      Entries: [
+      links: [],
+      entries: [
         makeEntry([
-          makeLink({ Rel: "http://opds-spec.org/acquisition" }),
+          makeLink({ rel: "http://opds-spec.org/acquisition" }),
         ]),
       ],
-    } as any;
+    };
     expect(isAcquisitionFeed(feed)).toBe(true);
   });
 
   it("returns false for navigation feed", () => {
     const feed = {
-      Entries: [
-        makeEntry([makeLink({ Rel: "subsection" })]),
+      links: [],
+      entries: [
+        makeEntry([makeLink({ rel: "subsection" })]),
       ],
-    } as any;
+    };
     expect(isAcquisitionFeed(feed)).toBe(false);
   });
 });
@@ -140,8 +127,8 @@ describe("getImage", () => {
   it("returns thumbnail URL when present", () => {
     const entry = makeEntry([
       makeLink({
-        Rel: "http://opds-spec.org/image/thumbnail",
-        Href: "/images/thumb.jpg",
+        rel: "http://opds-spec.org/image/thumbnail",
+        href: "/images/thumb.jpg",
       }),
     ]);
     expect(getImage(entry)).toBe("/images/thumb.jpg");
@@ -150,15 +137,15 @@ describe("getImage", () => {
   it("returns opds thumbnail URL", () => {
     const entry = makeEntry([
       makeLink({
-        Rel: "http://opds-spec.org/thumbnail",
-        Href: "/thumb.png",
+        rel: "http://opds-spec.org/thumbnail",
+        href: "/thumb.png",
       }),
     ]);
     expect(getImage(entry)).toBe("/thumb.png");
   });
 
   it("returns empty string when no image links", () => {
-    const entry = makeEntry([makeLink({ Rel: "search" })]);
+    const entry = makeEntry([makeLink({ rel: "search" })]);
     expect(getImage(entry)).toBe("");
   });
 });
@@ -167,8 +154,8 @@ describe("getLink", () => {
   it("builds absolute URL from origin + entry link href", () => {
     const entry = makeEntry([
       makeLink({
-        Type: "application/atom+xml;profile=opds-catalog",
-        Href: "/catalog/new",
+        type: "application/atom+xml;profile=opds-catalog",
+        href: "/catalog/new",
       }),
     ]);
     expect(getLink("https://example.com", entry)).toBe(
@@ -179,8 +166,8 @@ describe("getLink", () => {
   it("handles href without leading slash", () => {
     const entry = makeEntry([
       makeLink({
-        Type: "application/atom+xml",
-        Href: "catalog/new",
+        type: "application/atom+xml",
+        href: "catalog/new",
       }),
     ]);
     expect(getLink("https://example.com", entry)).toBe(
@@ -193,10 +180,10 @@ describe("getAcquisitionUrls", () => {
   it("returns array of PublicationSource from acquisition links", () => {
     const entry = makeEntry([
       makeLink({
-        Rel: "http://opds-spec.org/acquisition/open-access",
-        Href: "/books/1.epub",
-        Type: "application/epub+zip",
-        Title: "EPUB",
+        rel: "http://opds-spec.org/acquisition/open-access",
+        href: "/books/1.epub",
+        type: "application/epub+zip",
+        title: "EPUB",
       }),
     ]);
     const result = getAcquisitionUrls("https://example.com", entry);
@@ -215,12 +202,12 @@ describe("getAcquisitionUrls", () => {
   it("carries price and currency when the catalog charges for a book", () => {
     const entry = makeEntry([
       makeLink({
-        Rel: "http://opds-spec.org/acquisition/buy",
-        Href: "/books/2.epub",
-        Type: "application/epub+zip",
-        Title: "Buy",
-        OpdsPrice: 9.99,
-        OpdsPriceCurrencyCode: "USD",
+        rel: "http://opds-spec.org/acquisition/buy",
+        href: "/books/2.epub",
+        type: "application/epub+zip",
+        title: "Buy",
+        price: 9.99,
+        priceCurrencyCode: "USD",
       }),
     ]);
     const result = getAcquisitionUrls("https://example.com", entry);
@@ -234,10 +221,10 @@ describe("getAcquisitionUrls", () => {
   it("keeps absolute hrefs unchanged", () => {
     const entry = makeEntry([
       makeLink({
-        Rel: "http://opds-spec.org/acquisition",
-        Href: "https://cdn.example.com/book.epub",
-        Type: "application/epub+zip",
-        Title: "Download",
+        rel: "http://opds-spec.org/acquisition",
+        href: "https://cdn.example.com/book.epub",
+        type: "application/epub+zip",
+        title: "Download",
       }),
     ]);
     const result = getAcquisitionUrls("https://example.com", entry);
@@ -254,29 +241,29 @@ describe("getAcquisitionType", () => {
     ["subscribe", "subscribe"],
   ])("maps the %s rel suffix", (suffix, expected) => {
     const link = makeLink({
-      Rel: `http://opds-spec.org/acquisition/${suffix}`,
+      rel: `http://opds-spec.org/acquisition/${suffix}`,
     });
-    expect(getAcquisitionType(link as any)).toBe(expected);
+    expect(getAcquisitionType(link)).toBe(expected);
   });
 
   it("is undefined for the bare acquisition rel, which says nothing", () => {
-    const link = makeLink({ Rel: "http://opds-spec.org/acquisition" });
-    expect(getAcquisitionType(link as any)).toBeUndefined();
+    const link = makeLink({ rel: "http://opds-spec.org/acquisition" });
+    expect(getAcquisitionType(link)).toBeUndefined();
   });
 
   it("is undefined for a suffix it does not know", () => {
-    const link = makeLink({ Rel: "http://opds-spec.org/acquisition/rent" });
-    expect(getAcquisitionType(link as any)).toBeUndefined();
+    const link = makeLink({ rel: "http://opds-spec.org/acquisition/rent" });
+    expect(getAcquisitionType(link)).toBeUndefined();
   });
 });
 
 describe("getEntryUrl", () => {
   it("prefers an explicit entry document", () => {
     const entry = makeEntry([
-      makeLink({ Rel: "self", Href: "/self" }),
+      makeLink({ rel: "self", href: "/self" }),
       makeLink({
-        Href: "/entry",
-        Type: "application/atom+xml;type=entry;profile=opds-catalog",
+        href: "/entry",
+        type: "application/atom+xml;type=entry;profile=opds-catalog",
       }),
     ]);
     expect(getEntryUrl("https://example.com", entry)).toBe(
@@ -286,8 +273,8 @@ describe("getEntryUrl", () => {
 
   it("falls back to the self link", () => {
     const entry = makeEntry([
-      makeLink({ Rel: "self", Href: "/self" }),
-      makeLink({ Rel: "alternate", Href: "/alt", Type: "text/html" }),
+      makeLink({ rel: "self", href: "/self" }),
+      makeLink({ rel: "alternate", href: "/alt", type: "text/html" }),
     ]);
     expect(getEntryUrl("https://example.com", entry)).toBe(
       "https://example.com/self"
@@ -297,9 +284,9 @@ describe("getEntryUrl", () => {
   it("falls back to an atom alternate", () => {
     const entry = makeEntry([
       makeLink({
-        Rel: "alternate",
-        Href: "/alt",
-        Type: "application/atom+xml",
+        rel: "alternate",
+        href: "/alt",
+        type: "application/atom+xml",
       }),
     ]);
     expect(getEntryUrl("https://example.com", entry)).toBe(
@@ -309,7 +296,7 @@ describe("getEntryUrl", () => {
 
   it("keeps absolute hrefs unchanged", () => {
     const entry = makeEntry([
-      makeLink({ Rel: "self", Href: "https://other.example.com/e" }),
+      makeLink({ rel: "self", href: "https://other.example.com/e" }),
     ]);
     expect(getEntryUrl("https://example.com", entry)).toBe(
       "https://other.example.com/e"
@@ -319,8 +306,8 @@ describe("getEntryUrl", () => {
   it("is undefined when the feed offers no link to the entry itself", () => {
     const entry = makeEntry([
       makeLink({
-        Rel: "http://opds-spec.org/acquisition",
-        Href: "/books/1.epub",
+        rel: "http://opds-spec.org/acquisition",
+        href: "/books/1.epub",
       }),
     ]);
     expect(getEntryUrl("https://example.com", entry)).toBeUndefined();
@@ -330,7 +317,7 @@ describe("getEntryUrl", () => {
 describe("getOriginalUrl", () => {
   it("finds the html page for the book", () => {
     const entry = makeEntry([
-      makeLink({ Rel: "alternate", Href: "/book/1", Type: "text/html" }),
+      makeLink({ rel: "alternate", href: "/book/1", type: "text/html" }),
     ]);
     expect(getOriginalUrl("https://example.com", entry)).toBe(
       "https://example.com/book/1"
@@ -338,7 +325,7 @@ describe("getOriginalUrl", () => {
   });
 
   it("is undefined when there is no html alternate", () => {
-    const entry = makeEntry([makeLink({ Rel: "self", Href: "/self" })]);
+    const entry = makeEntry([makeLink({ rel: "self", href: "/self" })]);
     expect(getOriginalUrl("https://example.com", entry)).toBeUndefined();
   });
 });
@@ -348,18 +335,12 @@ describe("toIsoDate", () => {
     expect(toIsoDate("1818")).toBe("1818");
   });
 
-  it("converts a Date, which is what r2 hands back for Published", () => {
-    const date = new Date("2019-04-02T00:00:00.000Z");
-    expect(toIsoDate(date)).toBe("2019-04-02T00:00:00.000Z");
-  });
-
   it("parses a date string", () => {
     expect(toIsoDate("2019-04-02")).toBe("2019-04-02T00:00:00.000Z");
   });
 
   it("is undefined for nonsense and for nothing at all", () => {
     expect(toIsoDate("not a date")).toBeUndefined();
-    expect(toIsoDate(new Date("nope"))).toBeUndefined();
     expect(toIsoDate(undefined)).toBeUndefined();
   });
 });
@@ -392,8 +373,8 @@ describe("entry apiIds", () => {
 });
 
 describe("findEntry", () => {
-  const first = makeEntry([], "First", { Id: "urn:1" });
-  const second = makeEntry([], "Second", { Id: " urn:2\n" });
+  const first = makeEntry([], "First", { id: "urn:1" });
+  const second = makeEntry([], "Second", { id: "urn:2" });
 
   it("picks the entry with the id", () => {
     expect(findEntry([first, second], "urn:2")).toBe(second);
@@ -412,37 +393,36 @@ describe("entryToPublication", () => {
   it("maps everything a rich entry carries", () => {
     const entry = makeEntry(
       [
-        makeLink({ Rel: "self", Href: "/entry/1" }),
-        makeLink({ Rel: "alternate", Href: "/book/1", Type: "text/html" }),
+        makeLink({ rel: "self", href: "/entry/1" }),
+        makeLink({ rel: "alternate", href: "/book/1", type: "text/html" }),
         makeLink({
-          Rel: "http://opds-spec.org/image/thumbnail",
-          Href: "https://example.com/cover.jpg",
+          rel: "http://opds-spec.org/image/thumbnail",
+          href: "https://example.com/cover.jpg",
         }),
         makeLink({
-          Rel: "http://opds-spec.org/acquisition/open-access",
-          Href: "/books/1.epub",
-          Type: "application/epub+zip",
-          Title: "EPUB",
+          rel: "http://opds-spec.org/acquisition/open-access",
+          href: "/books/1.epub",
+          type: "application/epub+zip",
+          title: "EPUB",
         }),
       ],
       "Frankenstein",
       {
-        SubTitle: "Or, The Modern Prometheus",
-        Authors: [{ Name: "Mary Shelley", Uri: "https://example.com/shelley" }],
-        Summary: "A scientist and his creature.",
-        DcPublisher: "Lackington",
-        DcLanguage: "en",
-        DcIssued: "1818",
-        Categories: [
-          { Term: "FIC015000", Label: "Horror", Scheme: "bisac" },
-          { Term: "Gothic" },
+        subtitle: "Or, The Modern Prometheus",
+        authors: [{ name: "Mary Shelley", uri: "https://example.com/shelley" }],
+        summary: "A scientist and his creature.",
+        publisher: "Lackington",
+        language: "en",
+        issued: "1818",
+        categories: [
+          { term: "FIC015000", label: "Horror", scheme: "bisac" },
+          { term: "Gothic" },
         ],
-        Series: [{ Name: "Gothic Classics", Position: 3 }],
-        DcExtent: "280",
-        DcRights: "Public domain",
-        DcIdentifier: "9780486282114",
-        DcIdentifierType: "ISBN",
-        SchemaRatingValue: "4.5",
+        series: { name: "Gothic Classics", position: 3 },
+        extent: "280",
+        rights: "Public domain",
+        identifier: { value: "9780486282114", type: "ISBN" },
+        rating: "4.5",
       }
     );
 
@@ -499,7 +479,7 @@ describe("entryToPublication", () => {
   });
 
   it("addresses an entry with no link to itself by where it was listed", () => {
-    const entry = makeEntry([], "Moby Dick", { Id: "urn:gutenberg:2701:3" });
+    const entry = makeEntry([], "Moby Dick", { id: "urn:gutenberg:2701:3" });
     expect(
       entryToPublication(
         "https://m.gutenberg.org",
@@ -510,8 +490,8 @@ describe("entryToPublication", () => {
   });
 
   it("prefers the entry's own url to the fallback", () => {
-    const entry = makeEntry([makeLink({ Rel: "self", Href: "/entry/1" })], "A", {
-      Id: "urn:1",
+    const entry = makeEntry([makeLink({ rel: "self", href: "/entry/1" })], "A", {
+      id: "urn:1",
     });
     expect(
       entryToPublication("https://example.com", entry, "https://example.com/feed")
@@ -519,10 +499,9 @@ describe("entryToPublication", () => {
     ).toBe("https://example.com/entry/1");
   });
 
-  it("falls back to Content when there is no Summary", () => {
+  it("falls back to content when there is no summary", () => {
     const entry = makeEntry([], "Book", {
-      Summary: "",
-      Content: "<p>From the content element.</p>",
+      content: "<p>From the content element.</p>",
     });
     expect(entryToPublication("https://example.com", entry).summary).toBe(
       "<p>From the content element.</p>"
