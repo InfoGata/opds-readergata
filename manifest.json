@@ -2,7 +2,7 @@
   "id": "tJlCCR6lCfx7XeU_9LQum",
   "alias": "opds",
   "name": "Opds Catalog",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Get books from opds catalogs.",
   "script": "dist/index.js",
   "options": "dist/options.html",
