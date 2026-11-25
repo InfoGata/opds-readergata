@@ -252,6 +252,9 @@ const onSearch = async (request: SearchRequest): Promise<Feed> => {
   }
   const proxy = proxyUrl;
   const searchData = await fetch(`${proxy}${encodeURIComponent(searchUrl)}`);
+  if (!searchData.ok) {
+    throw new Error(`Failed to load ${searchUrl}: HTTP ${searchData.status}`);
+  }
   const searchText = await searchData.text();
   const parser = new DOMParser();
   const openSearchDoc = parser.parseFromString(searchText, "application/xml");
@@ -275,6 +278,11 @@ const onSearch = async (request: SearchRequest): Promise<Feed> => {
 
 const fetchOpdsDocument = async (url: string) => {
   const response = await fetch(`${proxyUrl}${encodeURIComponent(url)}`);
+  // A catalog that is down answers with an html error page, which would
+  // otherwise surface as "Not valid XML" and hide the real cause.
+  if (!response.ok) {
+    throw new Error(`Failed to load ${url}: HTTP ${response.status}`);
+  }
   const responseString = await response.text();
   let doc: Document;
   try {
