@@ -318,6 +318,10 @@ const makeOpdsRequest = async (url: string): Promise<Feed> => {
     return {
       type: "publication",
       items: books,
+      // A catalog's root can itself be a list of books (Palace Bookshelf),
+      // and its search link is then the only way into the rest of it.
+      searchInfo: searchInfo,
+      hasSearch: !!searchInfo,
     };
   } else {
     return {
@@ -392,12 +396,40 @@ application.onUiMessage = async (message: UiMessageType) => {
   }
 };
 
+/**
+ * Library Simplified's open collection moved to the Palace Project when NYPL
+ * handed SimplyE over; circulation.librarysimplified.org no longer resolves.
+ */
+const retiredSimplyE = "https://circulation.librarysimplified.org/OPEN/";
+const palaceBookshelf = {
+  name: "Palace Bookshelf",
+  apiId: "https://dpla.thepalaceproject.org/bookshelf/",
+};
+
+/**
+ * Saved catalogs that still point at a catalog that has moved, pointed at
+ * where it went. Only the stock name is replaced: one the user chose stays.
+ */
+const migrateCatalogs = (catalogs: Catalog[]): Catalog[] =>
+  catalogs.map((catalog) =>
+    catalog.apiId === retiredSimplyE
+      ? {
+          ...catalog,
+          apiId: palaceBookshelf.apiId,
+          name:
+            catalog.name === "SimplyE Collection"
+              ? palaceBookshelf.name
+              : catalog.name,
+        }
+      : catalog
+  );
+
 export const getDefaultCatalogs = (): Catalog[] => {
   return [
     {
       id: "1",
-      name: "SimplyE Collection",
-      apiId: "https://circulation.librarysimplified.org/OPEN/",
+      name: palaceBookshelf.name,
+      apiId: palaceBookshelf.apiId,
     },
     {
       id: "3",
@@ -416,7 +448,7 @@ export const getCatalogs = (): Catalog[] => {
   const catalogString = localStorage.getItem("catalogs");
   if (catalogString) {
     const catalogs = JSON.parse(catalogString) as Catalog[];
-    return catalogs;
+    return migrateCatalogs(catalogs);
   }
   return getDefaultCatalogs();
 };

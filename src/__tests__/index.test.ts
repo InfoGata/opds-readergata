@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   linkIsRel,
   isCatalogEntry,
@@ -569,5 +569,66 @@ describe("Catalog CRUD", () => {
     const defaults = getDefaultCatalogs();
     expect(defaults.length).toBe(3);
     expect(defaults.map((c) => c.name)).toContain("Project Gutenberg");
+  });
+
+  it("points a saved SimplyE catalog at Palace Bookshelf", () => {
+    const simplyE = "https://circulation.librarysimplified.org/OPEN/";
+    const palace = "https://dpla.thepalaceproject.org/bookshelf/";
+    localStorage.setItem(
+      "catalogs",
+      JSON.stringify([
+        { id: "1", name: "SimplyE Collection", apiId: simplyE },
+        { id: "2", name: "My library", apiId: simplyE },
+        { id: "3", name: "Other", apiId: "http://other.com" },
+      ])
+    );
+
+    expect(getCatalogs()).toEqual([
+      { id: "1", name: "Palace Bookshelf", apiId: palace },
+      // A name the user chose is theirs to keep.
+      { id: "2", name: "My library", apiId: palace },
+      { id: "3", name: "Other", apiId: "http://other.com" },
+    ]);
+  });
+});
+
+describe("onGetFeed", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps the search link on a feed of books", async () => {
+    const xml = `<feed xmlns="http://www.w3.org/2005/Atom">
+      <title>Bookshelf</title>
+      <link rel="search" href="/search/" type="application/opensearchdescription+xml"/>
+      <entry>
+        <title>A book</title>
+        <id>urn:book</id>
+        <link rel="http://opds-spec.org/acquisition/open-access" href="/book.epub" type="application/epub+zip"/>
+      </entry>
+    </feed>`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(xml, { status: 200 }))
+    );
+
+    const feed = await application.onGetFeed!({
+      apiId: "https://example.com/shelf/",
+    });
+
+    expect(feed.type).toBe("publication");
+    expect(feed.hasSearch).toBe(true);
+    expect(feed.searchInfo).toBe("https://example.com/search/");
+  });
+
+  it("reports the HTTP status of a catalog that is down", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("<html/>", { status: 503 }))
+    );
+
+    await expect(
+      application.onGetFeed!({ apiId: "https://example.com/feed/" })
+    ).rejects.toThrow("Failed to load https://example.com/feed/: HTTP 503");
   });
 });
